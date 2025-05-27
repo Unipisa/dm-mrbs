@@ -1,0 +1,6 @@
+{
+    "require": {
+        "league/oauth2-client": "^2.6",
+        "guzzle/guzzle": "^3.9"
+    }
+}

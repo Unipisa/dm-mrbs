@@ -1,8 +1,15 @@
 FROM php:8.2-apache
+MAINTAINER leonardo.robol@unipi.it
 
-RUN a2enmod rewrite
-RUN apt-get update && apt-get install -y libicu72 libicu-dev locales-all
-RUN docker-php-ext-install mysqli pdo pdo_mysql intl
+RUN apt-get update \
+    && apt-get install -y default-mysql-client libldap2-dev libicu-dev libsasl2-dev libldb-dev locales locales-all \
+    && ln -s /usr/lib/x86_64-linux-gnu/libldap.so /usr/lib/libldap.so \
+    && rm -r /var/lib/apt/lists/* \
+    && docker-php-ext-install ldap pdo pdo_mysql iconv intl
 
 COPY web/ /var/www/html/
-COPY docker-config.inc.php /var/www/html/config.inc.php
+COPY vendor/    /var/www/vendor/
+ADD tables.my.sql /tables.my.sql
+ADD entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]

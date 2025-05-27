@@ -1,0 +1,22 @@
+version: '2.1'
+
+services:
+  mrbs-web:
+    image: harbor.cs.dm.unipi.it/rooms/rooms
+    ports:
+      - 8080:80
+    env_file:
+      - .env
+    # You may want to this for local development; eliminate 
+    # these lines in production
+    volumes:
+      - ./web:/var/www/html
+      # - ./config.ext.php:/var/www/html/config.ext.php
+
+  mrbs-db:
+    image: mysql:8
+    volumes:
+      - ./database:/var/lib/mysql
+      - ./mrbs/tables.my.sql:/docker-entrypoint-initdb.d/tables.my.sql
+    env_file:
+      - .env
