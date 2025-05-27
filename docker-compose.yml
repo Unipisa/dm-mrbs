@@ -14,9 +14,11 @@ services:
       # - ./config.ext.php:/var/www/html/config.ext.php
 
   mrbs-db:
-    image: mysql:8
+    image: mysql:8.4
     volumes:
       - ./database:/var/lib/mysql
       - ./mrbs/tables.my.sql:/docker-entrypoint-initdb.d/tables.my.sql
+    command:
+      - --mysql-native-password=ON
     env_file:
       - .env
