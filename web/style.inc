@@ -48,3 +48,15 @@ if (isset($custom_css_url))
 {
   echo link_html($custom_css_url, true);
 }
+
+$custom_color = getenv("MRBS_UNIPI_COLOR");
+
+if ($custom_color) {
+  echo <<<EOF
+  <style>
+    .banner {
+      background-color: $custom_color;
+    }
+  </style>
+  EOF;
+}

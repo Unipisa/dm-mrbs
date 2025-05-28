@@ -707,6 +707,12 @@ function get_vocab(string $tag, ...$values) : string
 {
   global $vocab;
 
+  // A few special cases are handled directly)
+  $mrbs_tag_title = getenv('MRBS_UNIPI_TITLE');
+  if ($mrbs_tag_title && $tag == 'mrbs') {
+    return $mrbs_tag_title;
+  }
+
   // Return the tag itself if we can't find a vocab string
   if (!isset($vocab[$tag]))
   {
