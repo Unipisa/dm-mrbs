@@ -58,7 +58,7 @@ if (!isset($_GET['code'])) {
         $data = $resourceOwner->toArray();
 
         $uid = explode('@', $data['sub'])[0];
-        $matricola = $data['unipiMatricolaDipendente'];
+        $matricola = isset($data['unipiMatricolaDipendente']) ? $data['unipiMatricolaDipendente'] : null;
 
         $allowed = false;
 
@@ -122,7 +122,8 @@ if (!isset($_GET['code'])) {
         if ($allowed) {
             // Store the authentication data in the session
             $_SESSION['unipi_mail'] = $data['email'];
-            $_SESSION['unipi_cn'] = $data['given_name'] . ' ' . $data['family_name'];
+            $_SESSION['unipi_cn'] = (isset($data['given_name']) ? $data['given_name'] : '') .
+                ' ' . (isset($data['family_name']) ? $data['family_name'] : '');
             $_SESSION['unipi_uid'] = $uid;
             $_SESSION['accessToken'] = $accessToken->getToken();
             $_SESSION['expiresToken'] = $accessToken->getExpires();
