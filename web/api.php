@@ -134,6 +134,13 @@ function handle_book() {
 
     $booking['type'] = 'I'; // Internal booking are the only type supported by the API.
     $booking['create_by'] = 'api-user';
+    $repeat_type = RepeatRule::NONE;
+    $repeat_interval = 1;
+    $repeat_end_time = null;
+    $booking['repeat_rule'] = new RepeatRule();
+    $booking['repeat_rule']->setType($repeat_type);
+    $booking['repeat_rule']->setInterval($repeat_interval);
+    $booking['repeat_rule']->setEndDate($repeat_end_time);
     
     $res = mrbsMakeBookings([ $booking ]);
 
