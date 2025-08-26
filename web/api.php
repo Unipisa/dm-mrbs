@@ -40,6 +40,11 @@ switch ($_GET['q']) {
         handle_details();
         break;
 
+    case 'delete':
+        // Delete a booking.
+        handle_delete();
+        break;
+
     default:
         // Invalid request.
         http_response_code(400);
@@ -160,6 +165,43 @@ function handle_book() {
             'conflicts' => $res['conflicts'] ?? [],
         ]);
         exit;
+    }
+}
+
+function handle_delete() {
+    $entry_id = $_GET['id'];
+
+    if (! $entry_id) {
+        http_response_code(400);
+        write_response_json(['error' => 'Missing booking id']);
+        exit;
+    }
+
+    // Check if the user is the API user: if not, reject the request.
+    $entry = get_entry_by_id($entry_id);
+    if (! $entry) {
+        http_response_code(404);
+        write_response_json(['error' => 'Booking not found']);
+        exit;
+    }
+
+    if ($entry['create_by'] !== 'api-user') {
+        http_response_code(403);
+        write_response_json(['error' => 'Forbidden: cannot delete this booking']);
+        exit;
+    }
+
+    // FIXME: In principle, we may have bookings that are part of a series. In
+    // that case, we should decide whether to delete just one entry or the
+    // whole series. For now, we just delete the single entry.
+    $sql = "DELETE FROM " . _tbl('entry') . " WHERE id=?";
+    if (db()->command($sql, array($entry_id)) > 0) {
+        write_response_json(['status' => 'success']);
+
+    }
+    else  {
+        http_response_code(500);
+        write_response_json(['error' => 'Failed to delete booking']);
     }
 }
 

@@ -66,7 +66,7 @@ sed -i "s|@MRBS_HIDDEN_DAYS@|${MRBS_HIDDEN_DAYS}|g" config.inc.php
 
 if [ -f /tables.my.sql ]; then
   echo "Waiting for the DB to come up to setup the tables"
-  while ! mysqladmin ping -h ${MRBS_DB_HOST} --silent; do
+  while ! mysqladmin --ssl=FALSE ping -h ${MRBS_DB_HOST} --silent; do
     sleep 1
     echo " ... waiting for db ... "
   done

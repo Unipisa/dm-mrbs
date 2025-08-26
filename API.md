@@ -4,7 +4,8 @@
 HTTP API have been added to MRBS, to allow integration with other systems, mainly booking
 rooms for events and other activities in a semi-automatic way. 
 
-The exposed endpoints are described in the following sections. 
+The exposed endpoints are described in the following sections. Note that for most endpoints
+the HTTP method used (GET, POST, DELETE) is not really checked. 
 
 ## Details of an entry
 ```
@@ -119,3 +120,14 @@ $ curl -s --header "Authorization: Bearer XXXXXXXXXXXX" -X POST http://mrbs.exam
   ]
 }
 ```
+
+## Delete an entry
+To delete an entry, make a DELETE request as follows (NNN is the ID of the booking).
+```bash
+curl -s --head "Authorization: Bearer XXXXXXXXXXXX" -X DELETE "http://mrbs.example.com/api.php?q=delete&id=NNN"
+{
+  "status": "success"
+}
+```
+* Only bookings owned by ```api-user``` can be delete through the API;
+
