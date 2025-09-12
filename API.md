@@ -90,7 +90,8 @@ for instance as follows:
   "name": "Test booking", 
   "room_id": 23,
   "start_time": 1748331000,
-  "end_time": 1748334600
+  "end_time": 1748334600,
+  "description": "Booking made to test the API. Please ignore"
 }
 ```
 The response contains the confirmation and the new booking:
