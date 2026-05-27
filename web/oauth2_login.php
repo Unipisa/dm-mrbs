@@ -72,7 +72,7 @@ if (!isset($_GET['code'])) {
                 );
     
                 $userdata = $provider->getParsedResponse($request);    
-                $entries = $userdata['Entries'];
+                $entries = isset($userdata['Entries']) ?? [];
 
                 if ($entries) {    
                     // We check if the user is in one of the allowed departments or 
