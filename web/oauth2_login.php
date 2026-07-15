@@ -1,14 +1,5 @@
 <?php
 
-session_set_cookie_params([
-    'lifetime' => 0,
-    'path' => '/',
-    'secure' => false,      // only if using HTTPS
-    'httponly' => true,
-    'samesite' => 'Lax',   // often OK for OAuth redirects
-]);
-session_start();
-
 require "defaultincludes.inc";
 require_once "functions_table.inc";
 
