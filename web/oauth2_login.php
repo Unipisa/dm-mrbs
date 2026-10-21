@@ -15,6 +15,7 @@ $provider = new \League\OAuth2\Client\Provider\GenericProvider([
     'urlResourceOwnerDetails' => getenv('MRBS_UNIPI_OAUTH_URL_USERINFO')
 ]);
 
+
 // If we don't have an authorization code then get one
 if (!isset($_GET['code'])) {
 
@@ -29,7 +30,7 @@ if (!isset($_GET['code'])) {
         $_SESSION['oauth2redirect'] = $_GET['redirect'];
     else {
         $_SESSION['oauth2redirect'] = $_SERVER['HTTP_REFERER'] ?? getenv('MRBS_URL_BASE');
-    } 
+    }
 
     // Redirect the user to the authorization URL.
     header('Location: ' . $authorizationUrl);
@@ -53,7 +54,7 @@ if (!isset($_GET['code'])) {
         $accessToken = $provider->getAccessToken('authorization_code', [
             'code' => $_GET['code']
         ]);
-        
+
         $resourceOwner = $provider->getResourceOwner($accessToken);
         $data = $resourceOwner->toArray();
 
@@ -70,11 +71,15 @@ if (!isset($_GET['code'])) {
                     $accessToken,
                     [ 'headers' => [ 'accept' => 'application/json' ] ]
                 );
-    
-                $userdata = $provider->getParsedResponse($request);    
-                $entries = $userdata['Entries'];
 
-                if ($entries) {    
+                $userdata = $provider->getParsedResponse($request);
+                if (isset($userdata['Entries'])) {
+                    $entries = $userdata['Entries'];
+                } else {
+                    $entries = [];
+                }
+
+                if ($entries && isset($entries['Sede'])) {
                     // We check if the user is in one of the allowed departments or 
                     // CDS, or in the list of allowed exceptions. 
                     foreach ($entries['Sede'] as $key => $sede) {
@@ -90,7 +95,7 @@ if (!isset($_GET['code'])) {
                 // If any exception was encountered we ignore the result of this step
                 $allowed = false;
             }
-        }        
+        }
 
         // DM-manager check
         $email = $data['email'];
@@ -101,13 +106,13 @@ if (!isset($_GET['code'])) {
         curl_setopt($curl, CURLOPT_HEADER, false);
         $res = curl_exec($curl);
         curl_close($curl);
- 
+
         $dm_data = json_decode($res);
         $staff = $dm_data->data->staff;
         if ($staff) {
             foreach ($staff as $s) {
                 $role = $s->qualification;
-                $isInternal = $s->isInternal; 
+                $isInternal = $s->isInternal;
                 $allowed |= ($isInternal && in_array($role, $auth['valid_roles']));
             }
         }
@@ -130,6 +135,7 @@ if (!isset($_GET['code'])) {
             $_SESSION['refreshToken'] = $accessToken->getRefreshToken();
 
             // Redirect the user to the home page
+            // var_dump($_SESSION);
             session_write_close();
             header('Location: ' . (array_key_exists('oauth2redirect', $_SESSION) ? $_SESSION['oauth2redirect'] : '/'));
         }

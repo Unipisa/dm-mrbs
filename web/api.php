@@ -153,8 +153,26 @@ function handle_book() {
     $moderation_required = false;
     if ($moderation_required) {
         $booking['status'] = 0x02;
+
+    // Check the area in which the room is
+    $sql = "select approval_enabled from mrbs_area inner join mrbs_room on mrbs_room.area_id = mrbs_area.id where mrbs_room.id=?;";
+    $sql_params = [$booking["room_id"]];
+    $res = db()->query($sql, $sql_params);
+
+    if ($res) {
+       $row = $res->next_row_keyed();
+       $approval_enabled = $row["approval_enabled"];
     }
-    
+    else {
+        http_response_code(500);
+        write_response_json(['error' => 'Count not find area for the specified room']);
+        exit;
+    }
+
+    if ($approval_enabled) {
+        $booking["awaiting_approval"] = true;
+    }
+
     $res = mrbsMakeBookings([ $booking ]);
 
     if (array_key_exists('new_details', $res)) {
