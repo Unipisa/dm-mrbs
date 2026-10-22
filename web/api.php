@@ -83,6 +83,7 @@ function handle_query() {
                 'area_id' => $row['area_id'],
                 'name' => $row['room_name'],
                 'capacity' => (int)$row['capacity'],
+                'awaiting_approval' => $row['awaiting_approval'],
             ];
         }
     }
@@ -147,6 +148,12 @@ function handle_book() {
     $booking['repeat_rule']->setInterval($repeat_interval);
     $booking['repeat_rule']->setEndDate($repeat_end_time);
 
+    // FIXME: Check if the area the room is in actually requires approval 
+    // by moderators. If it does, then set the status to 0x02 (bit 2 set)
+    $moderation_required = false;
+    if ($moderation_required) {
+        $booking['status'] = 0x02;
+
     // Check the area in which the room is
     $sql = "select approval_enabled from mrbs_area inner join mrbs_room on mrbs_room.area_id = mrbs_area.id where mrbs_room.id=?;";
     $sql_params = [$booking["room_id"]];
@@ -165,7 +172,7 @@ function handle_book() {
     if ($approval_enabled) {
         $booking["awaiting_approval"] = true;
     }
-    
+
     $res = mrbsMakeBookings([ $booking ]);
 
     if (array_key_exists('new_details', $res)) {
