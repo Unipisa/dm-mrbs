@@ -1,6 +1,6 @@
 *~
 *.bak
-web/config.inc.php.*
+web/config.inc.php-sample
 web/css/custom.css
 web/config.inc.php
 
