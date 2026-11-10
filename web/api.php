@@ -153,6 +153,7 @@ function handle_book() {
     $moderation_required = false;
     if ($moderation_required) {
         $booking['status'] = 0x02;
+    }
 
     // Check the area in which the room is
     $sql = "select approval_enabled from mrbs_area inner join mrbs_room on mrbs_room.area_id = mrbs_area.id where mrbs_room.id=?;";
