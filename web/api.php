@@ -3,7 +3,7 @@
 namespace MRBS;
 
 require 'defaultincludes.inc';
-// require 'mrbs_sql.inc';
+require_once 'mrbs_sql.inc';
 
 // Phase 1: check authentication and authorization.
 $secret_token = getenv('MRBS_API_SECRET_TOKEN');
@@ -17,14 +17,14 @@ if (!$secret_token) {
 $headers = getallheaders();
 $auth_header = $headers['Authorization'] ?? $headers['authorization'] ?? null;
 $expected = 'Bearer ' . $secret_token;
-if ($auth_header !== $expected) {
+if (!is_string($auth_header) || !hash_equals($expected, $auth_header)) {
     http_response_code(401);
     write_response_json(['error' => 'Unauthorized']);
     exit;
 }
 
 // Phase 2: Parse the request
-switch ($_GET['q']) {
+switch ($_GET['q'] ?? '') {
     case 'query':
         // Query available rooms in a given time slot. 
         handle_query();
@@ -48,7 +48,7 @@ switch ($_GET['q']) {
     default:
         // Invalid request.
         http_response_code(400);
-        echo json_encode(['error' => 'Invalid request']);
+        write_response_json(['error' => 'Invalid request']);
         exit;
 }
 
@@ -58,12 +58,12 @@ function write_response_json($data) {
 }
 
 function handle_query() {
-    $start_time = $_GET['start_time'] ?? null;
-    $end_time = $_GET['end_time'] ?? null;
+    $start_time = filter_var($_GET['start_time'] ?? null, FILTER_VALIDATE_INT);
+    $end_time = filter_var($_GET['end_time'] ?? null, FILTER_VALIDATE_INT);
 
-    if (!$start_time || !$end_time) {
+    if ($start_time === false || $end_time === false || $start_time < 0 || $end_time <= $start_time) {
         http_response_code(400);
-        write_response_json(['error' => 'Missing start_time or end_time']);
+        write_response_json(['error' => 'Invalid start_time or end_time']);
         exit;
     }
 
@@ -79,11 +79,10 @@ function handle_query() {
         $rooms = [];
         while (false !== ($row = $res->next_row_keyed())) {
             $rooms[] = [
-                'id' => $row['id'],
-                'area_id' => $row['area_id'],
+                'id' => (int)$row['id'],
+                'area_id' => (int)$row['area_id'],
                 'name' => $row['room_name'],
                 'capacity' => (int)$row['capacity'],
-                'awaiting_approval' => $row['awaiting_approval'],
             ];
         }
     }
@@ -138,6 +137,28 @@ function handle_book() {
         exit;
     }
 
+    foreach (['room_id', 'start_time', 'end_time'] as $field) {
+        $booking[$field] = filter_var($booking[$field], FILTER_VALIDATE_INT);
+        if ($booking[$field] === false || $booking[$field] < ($field === 'room_id' ? 1 : 0)) {
+            http_response_code(400);
+            write_response_json(['error' => 'Invalid booking parameters']);
+            exit;
+        }
+    }
+    if ($booking['end_time'] <= $booking['start_time'] ||
+        !is_string($booking['name']) || trim($booking['name']) === '' ||
+        (isset($booking['description']) && !is_string($booking['description']))) {
+        http_response_code(400);
+        write_response_json(['error' => 'Invalid booking parameters']);
+        exit;
+    }
+
+    // Only accept supported fields; internal MRBS fields are controlled by the API.
+    $booking = array_intersect_key($booking, array_flip([
+        'room_id', 'start_time', 'end_time', 'name', 'description'
+    ]));
+    $booking['description'] = $booking['description'] ?? '';
+
     $booking['type'] = 'I'; // Internal booking are the only type supported by the API.
     $booking['create_by'] = 'api-user';
     $repeat_type = RepeatRule::NONE;
@@ -148,35 +169,31 @@ function handle_book() {
     $booking['repeat_rule']->setInterval($repeat_interval);
     $booking['repeat_rule']->setEndDate($repeat_end_time);
 
-    // FIXME: Check if the area the room is in actually requires approval 
-    // by moderators. If it does, then set the status to 0x02 (bit 2 set)
-    $moderation_required = false;
-    if ($moderation_required) {
-        $booking['status'] = 0x02;
-    }
-
     // Check the area in which the room is
-    $sql = "select approval_enabled from mrbs_area inner join mrbs_room on mrbs_room.area_id = mrbs_area.id where mrbs_room.id=?;";
+    $sql = "SELECT A.approval_enabled FROM " . _tbl('area') . " A INNER JOIN " . _tbl('room') . " R ON R.area_id=A.id WHERE R.id=? AND R.disabled=0";
     $sql_params = [$booking["room_id"]];
     $res = db()->query($sql, $sql_params);
 
     if ($res) {
        $row = $res->next_row_keyed();
-       $approval_enabled = $row["approval_enabled"];
+       if (!$row) {
+           http_response_code(404);
+           write_response_json(['error' => 'Room not found or disabled']);
+           exit;
+       }
+       $approval_enabled = (bool)$row["approval_enabled"];
     }
     else {
         http_response_code(500);
-        write_response_json(['error' => 'Count not find area for the specified room']);
+        write_response_json(['error' => 'Could not find area for the specified room']);
         exit;
     }
 
-    if ($approval_enabled) {
-        $booking["awaiting_approval"] = true;
-    }
+    $booking["awaiting_approval"] = $approval_enabled;
 
     $res = mrbsMakeBookings([ $booking ]);
 
-    if (array_key_exists('new_details', $res)) {
+    if (!empty($res['new_details'][0]['id'])) {
         // Successfully booked.
         write_response_json([
             'status' => 'success',
@@ -196,15 +213,21 @@ function handle_book() {
 }
 
 function handle_delete() {
-    $entry_id = $_GET['id'];
-
-    if (! $entry_id) {
-        http_response_code(400);
-        write_response_json(['error' => 'Missing booking id']);
+    if ($_SERVER['REQUEST_METHOD'] !== 'DELETE') {
+        http_response_code(405);
+        write_response_json(['error' => 'Method not allowed']);
         exit;
     }
 
+    $entry_id = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+
     // Check if the user is the API user: if not, reject the request.
+    if (!$entry_id) {
+        http_response_code(400);
+        write_response_json(['error' => 'Invalid booking id']);
+        exit;
+    }
+
     $entry = get_entry_by_id($entry_id);
     if (! $entry) {
         http_response_code(404);
@@ -233,8 +256,13 @@ function handle_delete() {
 }
 
 function handle_details() {
-    // Simulate fetching booking details.
-    $entry_id = $_GET['id'];
+    $entry_id = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+
+    if (!$entry_id) {
+        http_response_code(400);
+        write_response_json(['error' => 'Invalid booking id']);
+        exit;
+    }
 
     $entry = get_entry_by_id($entry_id);
     if (! $entry) {
@@ -245,5 +273,3 @@ function handle_details() {
     
     write_response_json($entry);
 }
-
-?>
